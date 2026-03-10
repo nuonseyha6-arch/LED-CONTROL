@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP32 LED Control (Mobile)</title>
+  <style>
+    body {
+      background: linear-gradient(to right, #797979, #f1cd00);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: sans-serif;
+      margin: 0;
+      padding: 20px;
+      text-align: center;
+    }
+
+    h1 {
+      font-size: 8vw; /* scales with screen width */
+      font-family: "Times New Roman", serif;
+      margin-bottom: 20px;
+    }
+
+    .status {
+      margin-bottom: 40px;
+      background: rgba(202, 202, 202, 0.575);
+      justify-content: center;
+      align-items: center;
+      display: flex;
+      border-radius: 50px;
+      font-size: 6vw; /* scales on mobile */
+      text-align: center;
+      font-weight: bold;
+      padding: 20px 40px;
+      color: white;
+      transition: color 0.3s;
+    }
+
+    .center {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    button {
+      width: 35vw; /* scales with screen width */
+      max-width: 200px;
+      height: 35vw;
+      max-height: 200px;
+      border: 4px solid rgb(0, 0, 0);
+      border-radius: 50%;
+      font-size: 12vw;
+      max-font-size: 70px;
+      -webkit-text-stroke: 1px black;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    button:active {
+      transform: scale(0.95);
+    }
+
+    .led-on { background-color: rgb(0, 119, 255); }
+    .led-off { background-color: rgb(248, 0, 0); }
+
+    @media (min-width: 768px) {
+      button { width: 150px; height: 150px; font-size: 60px; }
+      .status { font-size: 40px; }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>ESP32 LED Control</h1>
+
+  <!-- LED Status Display -->
+  <div class="status" id="led-status">UNKNOWN</div>
+
+  <!-- ON/OFF Buttons -->
+  <div class="center">
+    <button class="led-on" onclick="toggleLED('on')">ON</button>
+    <button class="led-off" onclick="toggleLED('off')">OFF</button>
+  </div>
+
+  <!-- MQTT.js -->
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <script>
+    const controlTopic = 'esp32/led/control';
+    const statusTopic = 'esp32/led/status';
+
+    // Connect via SSL WebSocket
+    const client = mqtt.connect('wss://broker.hivemq.com:8884/mqtt');
+
+    client.on('connect', () => {
+      console.log('Connected to MQTT broker (SSL)');
+      client.subscribe(statusTopic, (err) => {
+        if (!err) console.log('Subscribed to status topic');
+        else console.error('Subscribe error:', err);
+      });
+    });
+
+    client.on('error', (err) => console.error('MQTT error:', err));
+    client.on('offline', () => console.log('MQTT offline'));
+
+    // Update LED status
+    client.on('message', (topic, message) => {
+      if (topic === statusTopic) {
+        const status = message.toString().toUpperCase();
+        const statusDiv = document.getElementById('led-status');
+        statusDiv.innerText = status;
+        if (status === 'ON') statusDiv.style.color = 'green';
+        else if (status === 'OFF') statusDiv.style.color = 'red';
+        else statusDiv.style.color = 'white';
+      }
+    });
+
+    // Send LED command
+    function toggleLED(cmd) {
+      if (client.connected) {
+        client.publish(controlTopic, cmd);
+      } else {
+        alert('MQTT not connected!');
+      }
+    }
+  </script>
+
+</body>
+</html>
